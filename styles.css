@@ -25,11 +25,22 @@ body {
   flex: 1;
   padding: 8px 12px;
   min-width: 200px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
 }
 
 button {
   padding: 8px 16px;
   cursor: pointer;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #0069d9;
 }
 
 .tree-view {
@@ -38,44 +49,68 @@ button {
   border: 1px solid #ddd;
   padding: 10px;
   border-radius: 4px;
+  background: #fff;
 }
 
-ul {
-  list-style-type: none;
+/* Стили для дерева */
+.tree-view ul {
+  list-style: none;
   padding-left: 20px;
+  margin: 0;
 }
 
-li {
+.tree-view li {
   margin: 5px 0;
-  padding: 5px 10px 5px 25px;
+  padding-left: 28px;
   position: relative;
+  cursor: default;
+  min-height: 24px;
+  line-height: 24px;
+}
+
+.tree-view li > span {
   cursor: pointer;
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
-li:before {
-  content: "";
+.tree-view li > span:hover {
+  background-color: #f0f7ff;
+}
+
+/* Иконки папок и файлов */
+.tree-view li.folder::before {
+  content: '';
   position: absolute;
-  left: 5px;
-  top: 7px;
-  width: 16px;
-  height: 16px;
-  background-size: contain;
+  left: 0;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2356a0fa'%3E%3Cpath d='M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
-li.folder:before {
-  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23007bff"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>');
+.tree-view li.file::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23787878'%3E%3Cpath d='M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
-li.file:before {
-  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%236c757d"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/></svg>');
+.tree-view li.folder.collapsed::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2356a0fa'%3E%3Cpath d='M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z'/%3E%3C/svg%3E");
 }
 
-li.collapsed > ul {
+.tree-view li.collapsed > ul {
   display: none;
-}
-
-.highlight {
-  background-color: #fffacd;
 }
 
 /* Модальное окно */
@@ -98,115 +133,55 @@ li.collapsed > ul {
   width: 80%;
   max-width: 600px;
   border-radius: 5px;
+  position: relative;
 }
 
 .close {
   color: #aaa;
-  float: right;
+  position: absolute;
+  right: 20px;
+  top: 10px;
   font-size: 28px;
   font-weight: bold;
   cursor: pointer;
 }
 
+.close:hover {
+  color: #555;
+}
+
+.error {
+  color: #dc3545;
+  padding: 10px;
+  background: #f8d7da;
+  border-radius: 4px;
+}
+
+/* Адаптивность */
 @media (max-width: 768px) {
   .container {
     padding: 15px;
   }
-  li {
-    padding: 5px 8px 5px 22px;
-  }
-}
-/* Иконки для всех уровней */
-.node {
-  position: relative;
-  padding-left: 24px;
-  margin: 4px 0;
-  cursor: pointer;
-}
-
-.folder::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 2px;
-  width: 18px;
-  height: 18px;
-  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23666"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>');
-  background-repeat: no-repeat;
-}
-
-.file::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 2px;
-  width: 18px;
-  height: 18px;
-  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23666"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/></svg>');
-  background-repeat: no-repeat;
-}
-
-.folder.collapsed > ul {
-  display: none;
-}
-
-/* Стиль для корневых элементов */
-.node[data-level="1"] > span {
-  font-weight: bold;
-  color: #2c3e50;
-}
-.search-mode-label {
-  display: block;
-  margin: 8px 0;
-  padding: 5px;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.search-mode-label input {
-  margin-right: 8px;
-}
-
-@media (max-width: 768px) {
-  .search-mode-label {
-    margin-top: 10px;
-  }
-}
-/* Выравнивание текста с иконками */
-li {
-  margin: 3px 0;
-  padding: 0 14px 0 25px;
-  position: relative;
-  cursor: pointer;
-  line-height: 20px; /* Фиксированная высота строки */
-  min-height: 20px; /* Минимальная высота */
-}
-
-li:before {
-  content: "";
-  position: absolute;
-  left: 3px;
-  top: 5px; /* Точная позиция иконки */
-  width: 16px;
-  height: 17px;
-  background-size: contain;
-  vertical-align: middle;
-}
-
-li > span {
-  display: inline-block;
-  vertical-align: top;
-  padding-top: 3px;
   
-.code-search {
-  flex: 1;
-  padding: 8px 12px;
-  min-width: 200px;
-  margin-bottom: 8px;
+  .controls {
+    flex-direction: column;
+  }
+  
+  .search {
+    width: 100%;
+    min-width: auto;
+  }
+}
+.highlight {
+  background-color: #ffeb3b;
+  color: #000;
+  padding: 0 2px;
+  border-radius: 3px;
+  font-weight: bold;
+  box-shadow: 0 0 2px rgba(0,0,0,0.2);
 }
 
-@media (max-width: 768px) {
-  .code-search {
-    min-width: 100%;
-  }
+.search:focus {
+  outline: 2px solid #56a0fa;
+  border-color: transparent;
 }
