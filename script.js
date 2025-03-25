@@ -1,94 +1,151 @@
-// Загрузка данных (можно заменить на fetch для JSON-файла)
-const treeData = [
-  { id: '1', name: 'Раздел 1', parent: null },
-  { id: '1.1', name: 'Подраздел 1.1', parent: '1' },
-  { id: '1.2', name: 'Подраздел 1.2', parent: '1' },
-  { id: '2', name: 'Раздел 2', parent: null },
-  { id: '2.1', name: 'Подраздел 2.1', parent: '2' }
-];
+/*jshint esversion: 8 */
+document.addEventListener('DOMContentLoaded', function() {
+  // DOM элементы
+  var treeContainer = document.getElementById('tree');
+  var searchInput = document.querySelector('.search');
+  var expandBtn = document.getElementById('expand-btn');
+  var collapseBtn = document.getElementById('collapse-btn');
+  var helpBtn = document.getElementById('help-btn');
+  var modal = document.getElementById('help-modal');
+  var closeBtn = document.querySelector('.close');
 
-// Инициализация дерева
-function initTree() {
-  const treeContainer = document.getElementById('tree');
-  
-  // Создаем узлы
-  const nodes = {};
-  treeData.forEach(item => {
-    const li = document.createElement('li');
-    li.textContent = item.name;
-    li.dataset.id = item.id;
-    nodes[item.id] = li;
+  // Состояние приложения
+  var treeData = [];
+  var allNodes = [];
+
+  // Улучшенная загрузка данных
+  function loadData() {
+    return fetch('data.txt')
+      .then(function(response) {
+        if (!response.ok) throw new Error('Не удалось загрузить data.txt');
+        return response.text();
+      })
+      .then(function(text) {
+        return text.split('\n')
+          .map(function(line) { return line.trim(); })
+          .filter(function(line) { return line; })
+          .map(function(line) {
+            var parts = line.split('\t');
+            if (parts.length < 3) {
+              console.warn('Пропущена строка с ошибкой:', line);
+              return null;
+            }
+            return {
+              code: parts[0].trim(),
+              name: parts[1].trim(),
+              level: parseInt(parts[2].trim()) || 0
+            };
+          })
+          .filter(function(item) { return item !== null; });
+      })
+      .catch(function(error) {
+        console.error('Ошибка загрузки:', error);
+        alert('Ошибка: ' + error.message);
+        return [];
+      });
+  }
+
+  // Оптимизированное построение дерева
+  function buildTree(parentElement, items, parentCode) {
+    var ul = document.createElement('ul');
+    var currentLevel = parentCode ? parentCode.split('.').length + 1 : 1;
     
-    // Добавляем класс для папок/файлов
-    const isFolder = treeData.some(i => i.parent === item.id);
-    li.classList.add(isFolder ? 'folder' : 'file');
+    items.filter(function(item) {
+      return parentCode ? 
+        item.code.startsWith(parentCode + '.') && 
+        item.code.split('.').length === currentLevel :
+        item.level === 1;
+    }).forEach(function(item) {
+      var li = document.createElement('li');
+      li.innerHTML = '<span>' + item.code + '_' + item.name + '</span>';
+      li.dataset.code = item.code;
+      li.dataset.level = item.level;
+      
+      var hasChildren = items.some(function(i) {
+        return i.code.startsWith(item.code + '.');
+      });
+      
+      if (hasChildren) {
+        li.classList.add('folder', 'collapsed');
+        li.addEventListener('click', function(e) {
+          if (e.target.tagName !== 'INPUT') {
+            this.classList.toggle('collapsed');
+          }
+        });
+        buildTree(li, items, item.code);
+      } else {
+        li.classList.add('file');
+      }
+      
+      ul.appendChild(li);
+      allNodes.push(li);
+    });
     
-    if (isFolder) {
-      const ul = document.createElement('ul');
-      li.appendChild(ul);
-      li.classList.add('collapsed');
-    }
-  });
-  
-  // Строим иерархию
-  treeData.forEach(item => {
-    if (item.parent) {
-      const parentUl = nodes[item.parent].querySelector('ul');
-      parentUl.appendChild(nodes[item.id]);
-    } else {
-      treeContainer.appendChild(nodes[item.id]);
-    }
-  });
-  
-  // Обработчики для папок
-  document.querySelectorAll('.folder').forEach(folder => {
-    folder.addEventListener('click', function(e) {
-      if (e.target === this) {
-        this.classList.toggle('collapsed');
+    parentElement.appendChild(ul);
+  }
+
+  // Надежный поиск по названию
+  function searchByName(term) {
+    var searchTerm = term.toLowerCase().trim();
+    
+    allNodes.forEach(function(node) {
+      var nodeText = node.textContent.toLowerCase();
+      var isMatch = searchTerm ? nodeText.includes(searchTerm) : true;
+      
+      node.style.display = isMatch ? '' : 'none';
+      
+      // Автораскрытие родительских веток
+      if (isMatch) {
+        var parent = node.closest('li.folder');
+        while (parent) {
+          parent.classList.remove('collapsed');
+          parent.style.display = '';
+          parent = parent.parentElement.closest('li.folder');
+        }
       }
     });
-  });
-}
+  }
 
-// Поиск
-document.querySelector('.search').addEventListener('input', function(e) {
-  const searchText = e.target.value.toLowerCase();
-  
-  document.querySelectorAll('#tree li').forEach(li => {
-    const text = li.textContent.toLowerCase();
-    if (text.includes(searchText)) {
-      li.style.display = '';
-      // Раскрываем родителей
-      let parent = li.parentElement.closest('li');
-      while (parent) {
-        parent.classList.remove('collapsed');
-        parent = parent.parentElement.closest('li');
-      }
-    } else {
-      li.style.display = 'none';
+  // Инициализация с улучшенной обработкой ошибок
+  loadData().then(function(data) {
+    if (!data || data.length === 0) {
+      throw new Error('Данные не загружены или файл пуст');
     }
+    
+    treeData = data;
+    buildTree(treeContainer, treeData);
+    
+    // Основные обработчики
+    searchInput.addEventListener('input', function(e) {
+      searchByName(e.target.value);
+    });
+
+    expandBtn.addEventListener('click', function() {
+      document.querySelectorAll('.folder').forEach(function(f) {
+        f.classList.remove('collapsed');
+      });
+    });
+
+    collapseBtn.addEventListener('click', function() {
+      document.querySelectorAll('.folder').forEach(function(f) {
+        f.classList.add('collapsed');
+      });
+    });
+
+    helpBtn.addEventListener('click', function() {
+      modal.style.display = 'block';
+    });
+
+    closeBtn.addEventListener('click', function() {
+      modal.style.display = 'none';
+    });
+
+    window.addEventListener('click', function(e) {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+    
+  }).catch(function(error) {
+    console.error('Инициализация не удалась:', error);
+    treeContainer.innerHTML = '<div class="error">Ошибка: ' + error.message + '</div>';
   });
 });
-
-// Управление деревом
-document.getElementById('expand-btn').addEventListener('click', () => {
-  document.querySelectorAll('.folder').forEach(f => f.classList.remove('collapsed'));
-});
-
-document.getElementById('collapse-btn').addEventListener('click', () => {
-  document.querySelectorAll('.folder').forEach(f => f.classList.add('collapsed'));
-});
-
-// Модальное окно
-const modal = document.getElementById('help-modal');
-const btn = document.getElementById('help-btn');
-const span = document.getElementsByClassName('close')[0];
-
-btn.onclick = () => modal.style.display = "block";
-span.onclick = () => modal.style.display = "none";
-window.onclick = (e) => {
-  if (e.target == modal) modal.style.display = "none";
-};
-
-// Инициализация
-initTree();
