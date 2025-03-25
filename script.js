@@ -1,78 +1,72 @@
-/*jshint esversion: 8 */
 document.addEventListener('DOMContentLoaded', function() {
   // DOM элементы
-  var treeContainer = document.getElementById('tree');
-  var searchInput = document.querySelector('.search');
-  var expandBtn = document.getElementById('expand-btn');
-  var collapseBtn = document.getElementById('collapse-btn');
-  var helpBtn = document.getElementById('help-btn');
-  var modal = document.getElementById('help-modal');
-  var closeBtn = document.querySelector('.close');
+  const treeContainer = document.getElementById('tree');
+  const searchInput = document.querySelector('.search');
+  const expandBtn = document.getElementById('expand-btn');
+  const collapseBtn = document.getElementById('collapse-btn');
+  const helpBtn = document.getElementById('help-btn');
+  const modal = document.getElementById('help-modal');
+  const closeBtn = document.querySelector('.close');
+  const helpContent = document.querySelector('.help-content');
 
-  // Состояние приложения
-  var treeData = [];
-  var allNodes = [];
+  // Состояние
+  let treeData = [];
+  let allNodes = [];
+  let originalTreeState = [];
 
-  // Улучшенная загрузка данных
-  function loadData() {
-    return fetch('data.txt')
-      .then(function(response) {
-        if (!response.ok) throw new Error('Не удалось загрузить data.txt');
-        return response.text();
-      })
-      .then(function(text) {
-        return text.split('\n')
-          .map(function(line) { return line.trim(); })
-          .filter(function(line) { return line; })
-          .map(function(line) {
-            var parts = line.split('\t');
-            if (parts.length < 3) {
-              console.warn('Пропущена строка с ошибкой:', line);
-              return null;
-            }
-            return {
-              code: parts[0].trim(),
-              name: parts[1].trim(),
-              level: parseInt(parts[2].trim()) || 0
-            };
-          })
-          .filter(function(item) { return item !== null; });
-      })
-      .catch(function(error) {
-        console.error('Ошибка загрузки:', error);
-        alert('Ошибка: ' + error.message);
-        return [];
-      });
+  // Загрузка данных
+  async function loadData() {
+    try {
+      const response = await fetch('data.txt');
+      if (!response.ok) throw new Error('Ошибка загрузки данных');
+      const text = await response.text();
+      return text.split('\n')
+        .map(line => line.trim())
+        .filter(line => line)
+        .map(line => {
+          const parts = line.split('\t');
+          return {
+            code: parts[0].trim(),
+            name: parts[1].trim(),
+            level: parseInt(parts[2].trim()) || 0
+          };
+        });
+    } catch (error) {
+      console.error('Ошибка:', error);
+      alert('Ошибка загрузки: ' + error.message);
+      return [];
+    }
   }
 
-  // Оптимизированное построение дерева
-  function buildTree(parentElement, items, parentCode) {
-    var ul = document.createElement('ul');
-    var currentLevel = parentCode ? parentCode.split('.').length + 1 : 1;
+  // Построение дерева
+  function buildTree(parentElement, items, parentCode = '') {
+    const ul = document.createElement('ul');
+    const currentLevel = parentCode ? parentCode.split('.').length + 1 : 1;
     
-    items.filter(function(item) {
-      return parentCode ? 
-        item.code.startsWith(parentCode + '.') && 
-        item.code.split('.').length === currentLevel :
-        item.level === 1;
-    }).forEach(function(item) {
-      var li = document.createElement('li');
-      li.innerHTML = '<span>' + item.code + '_' + item.name + '</span>';
+    items.filter(item => 
+      parentCode 
+        ? item.code.startsWith(parentCode + '.') && item.code.split('.').length === currentLevel
+        : item.level === 1
+    ).forEach(item => {
+      const li = document.createElement('li');
+      const span = document.createElement('span');
+      span.textContent = `${item.code} ${item.name}`;
+      li.appendChild(span);
+      
       li.dataset.code = item.code;
       li.dataset.level = item.level;
+      li.dataset.originalText = `${item.code} ${item.name}`;
       
-      var hasChildren = items.some(function(i) {
-        return i.code.startsWith(item.code + '.');
-      });
+      const hasChildren = items.some(i => i.code.startsWith(item.code + '.'));
       
       if (hasChildren) {
         li.classList.add('folder', 'collapsed');
-        li.addEventListener('click', function(e) {
-          if (e.target.tagName !== 'INPUT') {
-            this.classList.toggle('collapsed');
-          }
-        });
         buildTree(li, items, item.code);
+        
+        span.addEventListener('click', function(e) {
+          e.stopPropagation();
+          li.classList.toggle('collapsed');
+        });
       } else {
         li.classList.add('file');
       }
@@ -84,68 +78,113 @@ document.addEventListener('DOMContentLoaded', function() {
     parentElement.appendChild(ul);
   }
 
-  // Надежный поиск по названию
-  function searchByName(term) {
-    var searchTerm = term.toLowerCase().trim();
+  // Поиск с подсветкой
+  function performSearch(term) {
+    const searchTerm = term.toLowerCase().trim();
     
-    allNodes.forEach(function(node) {
-      var nodeText = node.textContent.toLowerCase();
-      var isMatch = searchTerm ? nodeText.includes(searchTerm) : true;
+    // Сохраняем состояние перед поиском
+    if (searchTerm && originalTreeState.length === 0) {
+      originalTreeState = Array.from(document.querySelectorAll('.folder'))
+        .map(folder => ({
+          element: folder,
+          wasCollapsed: folder.classList.contains('collapsed')
+        }));
+    }
+
+    let hasMatches = false;
+    
+    allNodes.forEach(node => {
+      const originalText = node.dataset.originalText;
+      const nodeText = originalText.toLowerCase();
+      const isMatch = searchTerm ? nodeText.includes(searchTerm) : false;
       
-      node.style.display = isMatch ? '' : 'none';
-      
-      // Автораскрытие родительских веток
       if (isMatch) {
-        var parent = node.closest('li.folder');
+        hasMatches = true;
+        const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
+        node.innerHTML = originalText.replace(regex, '<span class="highlight">$1</span>');
+        
+        // Раскрываем родителей
+        let parent = node.closest('li.folder');
         while (parent) {
           parent.classList.remove('collapsed');
-          parent.style.display = '';
           parent = parent.parentElement.closest('li.folder');
         }
+      } else {
+        node.innerHTML = originalText;
       }
+      
+      node.style.display = isMatch ? '' : 'none';
     });
+
+    // Если поиск очищен - восстанавливаем состояние
+    if (!searchTerm) {
+      restoreOriginalState();
+    }
   }
 
-  // Инициализация с улучшенной обработкой ошибок
-  loadData().then(function(data) {
-    if (!data || data.length === 0) {
-      throw new Error('Данные не загружены или файл пуст');
+  function restoreOriginalState() {
+    allNodes.forEach(node => {
+      node.style.display = '';
+      node.innerHTML = node.dataset.originalText;
+    });
+    
+    if (originalTreeState.length > 0) {
+      originalTreeState.forEach(({element, wasCollapsed}) => {
+        if (wasCollapsed) {
+          element.classList.add('collapsed');
+        } else {
+          element.classList.remove('collapsed');
+        }
+      });
+      originalTreeState = [];
     }
-    
-    treeData = data;
-    buildTree(treeContainer, treeData);
-    
-    // Основные обработчики
-    searchInput.addEventListener('input', function(e) {
-      searchByName(e.target.value);
-    });
+  }
 
-    expandBtn.addEventListener('click', function() {
-      document.querySelectorAll('.folder').forEach(function(f) {
-        f.classList.remove('collapsed');
-      });
-    });
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
 
-    collapseBtn.addEventListener('click', function() {
-      document.querySelectorAll('.folder').forEach(function(f) {
-        f.classList.add('collapsed');
-      });
-    });
-
-    helpBtn.addEventListener('click', function() {
-      modal.style.display = 'block';
-    });
-
-    closeBtn.addEventListener('click', function() {
-      modal.style.display = 'none';
-    });
-
-    window.addEventListener('click', function(e) {
-      if (e.target === modal) modal.style.display = 'none';
-    });
-    
-  }).catch(function(error) {
-    console.error('Инициализация не удалась:', error);
-    treeContainer.innerHTML = '<div class="error">Ошибка: ' + error.message + '</div>';
+  // Управление деревом
+  expandBtn.addEventListener('click', () => {
+    document.querySelectorAll('.folder').forEach(f => f.classList.remove('collapsed'));
   });
+
+  collapseBtn.addEventListener('click', () => {
+    document.querySelectorAll('.folder').forEach(f => f.classList.add('collapsed'));
+  });
+
+  // Модальное окно
+  helpBtn.addEventListener('click', () => {
+    helpContent.innerHTML = `
+      <h3>Инструкция по использованию</h3>
+      <p><strong>Поиск:</strong> Введите текст в поле поиска для фильтрации дерева</p>
+      <p><strong>Развернуть все:</strong> Открывает все узлы дерева</p>
+      <p><strong>Свернуть все:</strong> Закрывает все узлы дерева</p>
+      <p><strong>Клик по папке:</strong> Открывает/закрывает папку</p>
+    `;
+    modal.style.display = 'block';
+  });
+
+  closeBtn.addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+
+  window.addEventListener('click', (e) => {
+    if (e.target === modal) modal.style.display = 'none';
+  });
+
+  // Поиск
+  searchInput.addEventListener('input', (e) => {
+    performSearch(e.target.value);
+  });
+
+  // Инициализация
+  (async function init() {
+    treeData = await loadData();
+    if (treeData.length > 0) {
+      buildTree(treeContainer, treeData);
+    } else {
+      treeContainer.innerHTML = '<div class="error">Нет данных для отображения</div>';
+    }
+  })();
 });
