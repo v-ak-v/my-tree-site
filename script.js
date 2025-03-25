@@ -12,28 +12,29 @@ document.addEventListener('DOMContentLoaded', function() {
   // Состояние
   let treeData = [];
   let allNodes = [];
-  let originalTreeState = [];
 
   // Загрузка данных
   async function loadData() {
     try {
       const response = await fetch('data.txt');
-      if (!response.ok) throw new Error('Ошибка загрузки данных');
+      if (!response.ok) throw new Error('Network response was not ok');
       const text = await response.text();
       return text.split('\n')
         .map(line => line.trim())
         .filter(line => line)
         .map(line => {
           const parts = line.split('\t');
+          if (parts.length < 3) return null;
           return {
             code: parts[0].trim(),
             name: parts[1].trim(),
             level: parseInt(parts[2].trim()) || 0
           };
-        });
+        })
+        .filter(item => item !== null);
     } catch (error) {
-      console.error('Ошибка:', error);
-      alert('Ошибка загрузки: ' + error.message);
+      console.error('Error loading data:', error);
+      alert('Error loading data: ' + error.message);
       return [];
     }
   }
@@ -45,7 +46,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     items.filter(item => 
       parentCode 
-        ? item.code.startsWith(parentCode + '.') && item.code.split('.').length === currentLevel
+        ? item.code.startsWith(parentCode + '.') && 
+          item.code.split('.').length === currentLevel
         : item.level === 1
     ).forEach(item => {
       const li = document.createElement('li');
@@ -54,8 +56,8 @@ document.addEventListener('DOMContentLoaded', function() {
       li.appendChild(span);
       
       li.dataset.code = item.code;
+      li.dataset.name = item.name;
       li.dataset.level = item.level;
-      li.dataset.originalText = `${item.code} ${item.name}`;
       
       const hasChildren = items.some(i => i.code.startsWith(item.code + '.'));
       
@@ -78,111 +80,87 @@ document.addEventListener('DOMContentLoaded', function() {
     parentElement.appendChild(ul);
   }
 
-  // Поиск с подсветкой
-  function performSearch(term) {
-    const searchTerm = term.toLowerCase().trim();
+  // Функция поиска
+  function performSearch(searchTerm) {
+    const term = searchTerm.toLowerCase().trim();
     
-    // Сохраняем состояние перед поиском
-    if (searchTerm && originalTreeState.length === 0) {
-      originalTreeState = Array.from(document.querySelectorAll('.folder'))
-        .map(folder => ({
-          element: folder,
-          wasCollapsed: folder.classList.contains('collapsed')
-        }));
+    if (!term) {
+      // Если поиск пустой, показываем все элементы
+      allNodes.forEach(node => {
+        node.style.display = '';
+        node.innerHTML = `<span>${node.dataset.code} ${node.dataset.name}</span>`;
+      });
+      return;
     }
-
-    let hasMatches = false;
     
+    // Сначала скрываем все узлы
     allNodes.forEach(node => {
-      const originalText = node.dataset.originalText;
-      const nodeText = originalText.toLowerCase();
-      const isMatch = searchTerm ? nodeText.includes(searchTerm) : false;
+      node.style.display = 'none';
+    });
+    
+    // Ищем совпадения
+    allNodes.forEach(node => {
+      const codeMatch = node.dataset.code.toLowerCase().includes(term);
+      const nameMatch = node.dataset.name.toLowerCase().includes(term);
       
-      if (isMatch) {
-        hasMatches = true;
-        const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
-        node.innerHTML = originalText.replace(regex, '<span class="highlight">$1</span>');
+      if (codeMatch || nameMatch) {
+        // Показываем совпавший узел
+        node.style.display = '';
         
-        // Раскрываем родителей
-        let parent = node.closest('li.folder');
+        // Подсвечиваем текст
+        const span = node.querySelector('span');
+        if (span) {
+          const text = `${node.dataset.code} ${node.dataset.name}`;
+          const regex = new RegExp(`(${term})`, 'gi');
+          span.innerHTML = text.replace(regex, '<span class="highlight">$1</span>');
+        }
+        
+        // Раскрываем всех родителей
+        let parent = node.parentElement.closest('li.folder');
         while (parent) {
+          parent.style.display = '';
           parent.classList.remove('collapsed');
           parent = parent.parentElement.closest('li.folder');
         }
-      } else {
-        node.innerHTML = originalText;
       }
-      
-      node.style.display = isMatch ? '' : 'none';
     });
-
-    // Если поиск очищен - восстанавливаем состояние
-    if (!searchTerm) {
-      restoreOriginalState();
-    }
   }
-
-  function restoreOriginalState() {
-    allNodes.forEach(node => {
-      node.style.display = '';
-      node.innerHTML = node.dataset.originalText;
-    });
-    
-    if (originalTreeState.length > 0) {
-      originalTreeState.forEach(({element, wasCollapsed}) => {
-        if (wasCollapsed) {
-          element.classList.add('collapsed');
-        } else {
-          element.classList.remove('collapsed');
-        }
-      });
-      originalTreeState = [];
-    }
-  }
-
-  function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  // Управление деревом
-  expandBtn.addEventListener('click', () => {
-    document.querySelectorAll('.folder').forEach(f => f.classList.remove('collapsed'));
-  });
-
-  collapseBtn.addEventListener('click', () => {
-    document.querySelectorAll('.folder').forEach(f => f.classList.add('collapsed'));
-  });
-
-  // Модальное окно
-  helpBtn.addEventListener('click', () => {
-    helpContent.innerHTML = `
-      <h3>Инструкция по использованию</h3>
-      <p><strong>Поиск:</strong> Введите текст в поле поиска для фильтрации дерева</p>
-      <p><strong>Развернуть все:</strong> Открывает все узлы дерева</p>
-      <p><strong>Свернуть все:</strong> Закрывает все узлы дерева</p>
-      <p><strong>Клик по папке:</strong> Открывает/закрывает папку</p>
-    `;
-    modal.style.display = 'block';
-  });
-
-  closeBtn.addEventListener('click', () => {
-    modal.style.display = 'none';
-  });
-
-  window.addEventListener('click', (e) => {
-    if (e.target === modal) modal.style.display = 'none';
-  });
-
-  // Поиск
-  searchInput.addEventListener('input', (e) => {
-    performSearch(e.target.value);
-  });
 
   // Инициализация
   (async function init() {
     treeData = await loadData();
     if (treeData.length > 0) {
       buildTree(treeContainer, treeData);
+      
+      // Обработчики событий
+      searchInput.addEventListener('input', (e) => {
+        performSearch(e.target.value);
+      });
+      
+      expandBtn.addEventListener('click', () => {
+        document.querySelectorAll('.folder').forEach(f => f.classList.remove('collapsed'));
+      });
+      
+      collapseBtn.addEventListener('click', () => {
+        document.querySelectorAll('.folder').forEach(f => f.classList.add('collapsed'));
+      });
+      
+      helpBtn.addEventListener('click', () => {
+        helpContent.innerHTML = `
+          <h3>Инструкция</h3>
+          <p>Введите текст в поле поиска для фильтрации дерева</p>
+          <p>Используйте кнопки для управления отображением</p>
+        `;
+        modal.style.display = 'block';
+      });
+      
+      closeBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+      });
+      
+      window.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+      });
     } else {
       treeContainer.innerHTML = '<div class="error">Нет данных для отображения</div>';
     }
