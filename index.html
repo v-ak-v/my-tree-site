@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Древовидная структура</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Моя структура</h1>
+    
+    <div class="controls">
+      <input type="text" class="search" placeholder="Поиск...">
+      <button id="expand-btn">Развернуть все</button>
+      <button id="collapse-btn">Свернуть все</button>
+      <button id="help-btn">Справка</button>
+    </div>
+    
+    <div class="tree-view">
+      <ul id="tree"></ul>
+    </div>
+  </div>
+
+  <!-- Модальное окно справки -->
+  <div id="help-modal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Справка</h2>
+      <div class="help-content"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
