@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function() {
     ).forEach(item => {
       const li = document.createElement('li');
       const span = document.createElement('span');
-      span.textContent = `${item.code} ${item.name}`;
+      span.textContent = `${item.code}_${item.name}`; // Изменено здесь
       li.appendChild(span);
       
       li.dataset.code = item.code;
@@ -85,37 +85,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const term = searchTerm.toLowerCase().trim();
     
     if (!term) {
-      // Если поиск пустой, показываем все элементы
       allNodes.forEach(node => {
         node.style.display = '';
-        node.innerHTML = `<span>${node.dataset.code} ${node.dataset.name}</span>`;
+        node.innerHTML = `<span>${node.dataset.code}_${node.dataset.name}</span>`; // Изменено здесь
       });
       return;
     }
     
-    // Сначала скрываем все узлы
     allNodes.forEach(node => {
       node.style.display = 'none';
     });
     
-    // Ищем совпадения
     allNodes.forEach(node => {
       const codeMatch = node.dataset.code.toLowerCase().includes(term);
       const nameMatch = node.dataset.name.toLowerCase().includes(term);
       
       if (codeMatch || nameMatch) {
-        // Показываем совпавший узел
         node.style.display = '';
         
-        // Подсвечиваем текст
         const span = node.querySelector('span');
         if (span) {
-          const text = `${node.dataset.code} ${node.dataset.name}`;
+          const text = `${node.dataset.code}_${node.dataset.name}`; // Изменено здесь
           const regex = new RegExp(`(${term})`, 'gi');
           span.innerHTML = text.replace(regex, '<span class="highlight">$1</span>');
         }
         
-        // Раскрываем всех родителей
         let parent = node.parentElement.closest('li.folder');
         while (parent) {
           parent.style.display = '';
@@ -132,7 +126,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (treeData.length > 0) {
       buildTree(treeContainer, treeData);
       
-      // Обработчики событий
       searchInput.addEventListener('input', (e) => {
         performSearch(e.target.value);
       });
@@ -147,9 +140,11 @@ document.addEventListener('DOMContentLoaded', function() {
       
       helpBtn.addEventListener('click', () => {
         helpContent.innerHTML = `
-          <h3>Инструкция</h3>
-          <p>Введите текст в поле поиска для фильтрации дерева</p>
-          <p>Используйте кнопки для управления отображением</p>
+          <ul>
+            <li>Навигация: используйте мышь для раскрытия разделов</li>
+            <li>Поиск: поддерживается фильтрация по частичному совпадению</li>
+            <li>Версия: 2.0 (актуальная)</li>
+          </ul>
         `;
         modal.style.display = 'block';
       });
